@@ -162,7 +162,7 @@ pthread_t thread_id;
 void *thread_function(void *args)
 {
   int millisecond = 0;
-  int trigger_moment = 1000 * 10 ;
+  int trigger_moment = 1000 * 60 * 2;
   clock_t before = clock();
 
   printf("[%s] >> timer elapsed!\n", get_time());
