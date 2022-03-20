@@ -1,8 +1,5 @@
-
-assets/database.sqlite
 .cache/*
+output/*
 garbage/*
-output/cmake/*
-output/debug/*
-output/release/*
 compile_commands.json
+assets/database.sqlite
