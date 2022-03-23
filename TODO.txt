@@ -1,0 +1,7 @@
+- [DONE] show errors in quickfix buffer if project failed to build.
+- [DONE] can set architecture/build_type of project
+- [INPROGRESS] show progress of build.
+- [] show warnings if build has warnings.
+- [] store breakpoints when quit neovim.
+- [] show registers in debug mode.
+- [] show callstack in debug mode.
