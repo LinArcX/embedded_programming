@@ -6,16 +6,19 @@ local event = require("nui.utils.autocmd").event
 local application_name = "myserver"
 local project_settings = "project_settings.txt"
 
-local arch_types =  { "x86", "x64" }
-local build_types =  { "debug", "release" }
+local build_type_debug="debug"
+local build_type_release="release"
+
+local arch_type_x86="x86"
+local arch_type_x64="x64"
 
 local has_error = false
 local notify_timeout = 500
 local notification_data = {}
-local notification_title_done = nil
-local notification_title_in_progress = nil
+local notification_title_done
+local notification_title_in_progress
 local spinner_frames = { "⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷" }
-local project_settings_items = nil
+local project_settings_items
 
 function nvim_settings.fetch_settings(path)
   local rows = {}
@@ -33,7 +36,7 @@ function nvim_settings.fetch_settings(path)
 end
 
 function nvim_settings.setup_keys()
-  if project_settings_items[2] == build_types[1] then
+  if project_settings_items[2] == build_type_debug then
     vim.api.nvim_set_keymap('n', '<F5>', ':lua require\'dap\'.continue()<CR>', {noremap = true})
   else
     vim.api.nvim_set_keymap('n', '<F5>', ':lua nvim_settings.run()<CR>', {noremap = true})
@@ -71,8 +74,8 @@ function nvim_settings.setup_command_palette()
       { "libc help", ':call LibcSH()' },
       { "libc help(under cursor)", ':call LibcSHUC()' },
       { 'switch header/source (A-o)', ':FSHere()' },
-      { 'set arch type', ':lua nvim_settings.select_arch_type("Architecture")' },
-      { 'set build type', ':lua nvim_settings.select_build_type("BuildType")' },
+      { 'set arch type', ':lua nvim_settings.select_type("Architecture", { \'x86\', \'x64\' }, 1)' },
+      { 'set build type', ':lua nvim_settings.select_type("BuildType", { \'debug\', \'release\' }, 2)' },
       { 'clean (C-e)', ':lua nvim_settings.clean()' },
       { 'run (F5)', ':lua nvim_settings.run()' },
       { 'build (C-b)', ':lua nvim_settings.build()' },
@@ -108,8 +111,13 @@ function nvim_settings.on_menu_item_selected(item, new_title, index)
     { title = new_title, timeout = notification_title_done })
 end
 
-function nvim_settings.select_arch_type(new_title)
-   local menu = Menu({
+function nvim_settings.select_type(new_title, types, index)
+  local new_lines = {}
+  for i, my_type in ipairs(types) do
+    new_lines[i] = Menu.item(my_type)
+  end
+
+  local menu = Menu({
     position = { row = "5%", col = "50%" },
     size = { width = 40, height = 2 },
     relative = "editor",
@@ -124,10 +132,7 @@ function nvim_settings.select_arch_type(new_title)
     win_options = { winblend = 10, winhighlight = "Normal:Normal" },
   },
   {
-    lines = {
-      Menu.item("x86"),
-      Menu.item("x64"),
-    },
+    lines = new_lines,
     max_width = 20,
     keymap = {
       focus_next  = { "j", "<Down>", "<Tab>" },
@@ -136,43 +141,7 @@ function nvim_settings.select_arch_type(new_title)
       submit      = { "<CR>", "<Space>" },
     },
     on_submit = function(item)
-      nvim_settings.on_menu_item_selected(item, new_title, 1)
-    end,
-  })
-
-  menu:mount()
-  menu:on(event.BufLeave, menu.menu_props.on_close, { once = true })
-end
-
-function nvim_settings.select_build_type(new_title)
-   local menu = Menu({
-    position = { row = "5%", col = "50%" },
-    size = { width = 40, height = 2 },
-    relative = "editor",
-    border = {
-      highlight = "MyHighlightGroup",
-      style = "single",
-      text = {
-        top = new_title,
-        top_align = "center",
-      },
-    },
-    win_options = { winblend = 10, winhighlight = "Normal:Normal" },
-  },
-  {
-    lines = {
-      Menu.item("debug"),
-      Menu.item("release"),
-    },
-    max_width = 20,
-    keymap = {
-      focus_next  = { "j", "<Down>", "<Tab>" },
-      focus_prev  = { "k", "<Up>", "<S-Tab>" },
-      close       = { "<Esc>", "<C-c>" },
-      submit      = { "<CR>", "<Space>" },
-    },
-    on_submit = function(item)
-      nvim_settings.on_menu_item_selected(item, new_title, 2)
+      nvim_settings.on_menu_item_selected(item, new_title, index)
     end,
   })
 
@@ -212,7 +181,7 @@ local function on_event(job_id, data, event)
       vim.cmd [[ :copen ]]
       has_error = true
 
-      -- require("notify").dismiss(true)
+      require("notify").dismiss(true)
 
       require("notify").notify("Something went wrong!", "ERROR",
         { title = notification_title_done, timeout = notify_timeout })
@@ -223,7 +192,7 @@ local function on_event(job_id, data, event)
       if(not has_error) then
         update_spinner(notification_data, "SUCCESS")
 
-        -- require("notify").dismiss()
+        require("notify").dismiss()
 
         local successfull_message =  string.format("%s was successful :)", notification_title_done)
         require("notify").notify(successfull_message, "INFO",
@@ -264,16 +233,16 @@ function nvim_settings.build()
   local cmd_make = "make -j8"
   local cmd_link = "cd ../..; ln -s output/cmake/compile_commands.json ."
 
-  if project_settings_items[1] == arch_types[1] then
-    if project_settings_items[2] == build_types[1] then
+  if project_settings_items[1] == arch_type_x86 then
+    if project_settings_items[2] == build_type_debug then
       cmd_cmake = string.format("%s; cmake %s -DCMAKE_BUILD_TYPE=%s ../..", cmd_cd, "-DCMAKE_CXX_FLAGS=-m32", "DEBUG")
-    elseif project_settings_items[2] == build_types[2] then
+    elseif project_settings_items[2] == build_type_release then
       cmd_cmake = string.format("%s; cmake %s -DCMAKE_BUILD_TYPE=%s ../..", cmd_cd, "-DCMAKE_CXX_FLAGS=-m32", "RELEASE")
     end
-  elseif project_settings_items[1] == arch_types[2] then
-    if project_settings_items[2] == build_types[1] then
+  elseif project_settings_items[1] == arch_type_x64 then
+    if project_settings_items[2] == build_type_debug then
       cmd_cmake = string.format("%s; cmake %s -DCMAKE_BUILD_TYPE=%s ../..", cmd_cd, "", "DEBUG")
-    elseif project_settings_items[2] == build_types[2] then
+    elseif project_settings_items[2] == build_type_release then
       cmd_cmake = string.format("%s; cmake %s -DCMAKE_BUILD_TYPE=%s ../..", cmd_cd, "", "RELEASE")
     end
   end

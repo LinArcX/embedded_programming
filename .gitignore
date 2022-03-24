@@ -1,5 +1,6 @@
 .cache/*
 output/*
 garbage/*
+project_settings.txt
 compile_commands.json
 assets/database.sqlite
